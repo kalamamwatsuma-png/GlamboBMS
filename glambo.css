@@ -138,3 +138,4 @@ tr:hover td{background:var(--blue-lt)}
 .gear-btn{background:none;border:none;color:rgba(255,255,255,.55);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:6px;transition:.15s}
 .gear-btn:hover{background:rgba(255,255,255,.1);color:#fff}
 @media(max-width:580px){.grid-2{grid-template-columns:1fr}#main{padding:12px}.kpi-val{font-size:18px}}
+
