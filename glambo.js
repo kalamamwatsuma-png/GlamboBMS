@@ -398,6 +398,147 @@ function reams (){
  ]);
 }
 
+// ── EXCEL EXPORTS ──
+function xlsxDownload(wb, filename){
+  XLSX.writeFile(wb, filename);
+}
+function fmtNum(n){ return Number(n||0); }
+
+function exportSL(){
+  const arr=load(K.svc);
+  const from=document.getElementById('sl-from')?.value||'';
+  const to=document.getElementById('sl-to')?.value||'9999';
+  const q=(document.getElementById('sl-q')?.value||'').toLowerCase();
+  const list=arr.filter(r=>{
+    if(from&&r.date<from)return false;
+    if(to&&r.date>to)return false;
+    if(q&&!`${r.type}${r.desc}${r.customer}${r.staff}`.toLowerCase().includes(q))return false;
+    return true;
+  }).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  const rows=list.map(r=>({
+    'Date':fmtD(r.date),'Service Type':r.type,'Description':r.desc||'',
+    'Qty':fmtNum(r.qty),'Unit Price (KES)':fmtNum(r.price),'Total (KES)':fmtNum(r.total),
+    'Customer':r.customer,'Payment':r.payment,'Staff':r.staff
+  }));
+  const total=list.reduce((a,b)=>a+b.total,0);
+  rows.push({'Date':'','Service Type':'','Description':'','Qty':'','Unit Price (KES)':'','Total (KES)':fmtNum(total),'Customer':'TOTAL','Payment':'','Staff':''});
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:24},{wch:22},{wch:6},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Service Log');
+  xlsxDownload(wb,'Glambo_ServiceLog_'+today()+'.xlsx');
+  toast('Service Log exported','ok');
+}
+
+function exportInv(){
+  const arr=load(K.inv);
+  const rows=arr.map(i=>({
+    'Item Name':i.name,'Category':i.cat,'Qty in Stock':fmtNum(i.qty),
+    'Min Stock Level':fmtNum(i.min),'Unit Cost (KES)':fmtNum(i.cost),
+    'Stock Value (KES)':fmtNum(i.qty*i.cost),'Supplier':i.supp||'',
+    'Last Restocked':fmtD(i.restocked),'Status':i.qty<=i.min?'⚠ Reorder':'✓ OK'
+  }));
+  const tv=arr.reduce((a,b)=>a+(b.qty*b.cost),0);
+  rows.push({'Item Name':'TOTAL STOCK VALUE','Category':'','Qty in Stock':'','Min Stock Level':'','Unit Cost (KES)':'','Stock Value (KES)':fmtNum(tv),'Supplier':'','Last Restocked':'','Status':''});
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:22},{wch:18},{wch:12},{wch:14},{wch:14},{wch:16},{wch:18},{wch:14},{wch:10}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Inventory');
+  xlsxDownload(wb,'Glambo_Inventory_'+today()+'.xlsx');
+  toast('Inventory exported','ok');
+}
+
+function exportExp(){
+  const arr=load(K.exp);
+  const from=document.getElementById('exp-from')?.value||'';
+  const to=document.getElementById('exp-to')?.value||'9999';
+  const list=arr.filter(e=>(!from||e.date>=from)&&e.date<=to).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  const rows=list.map(e=>({
+    'Date':fmtD(e.date),'Category':e.cat,'Description':e.desc||'',
+    'Amount (KES)':fmtNum(e.amt),'Payment Method':e.payment,'Reference':e.ref||''
+  }));
+  const total=list.reduce((a,b)=>a+b.amt,0);
+  rows.push({'Date':'','Category':'TOTAL','Description':'','Amount (KES)':fmtNum(total),'Payment Method':'','Reference':''});
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:22},{wch:24},{wch:14},{wch:16},{wch:16}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Expenses');
+  xlsxDownload(wb,'Glambo_Expenses_'+today()+'.xlsx');
+  toast('Expenses exported','ok');
+}
+
+function exportCust(){
+  const arr=load(K.cus);const svcs=load(K.svc);
+  const rows=arr.map(c=>{
+    const spent=svcs.filter(s=>s.customer===c.name).reduce((a,b)=>a+b.total,0);
+    const visits=svcs.filter(s=>s.customer===c.name).length;
+    return {'ID':c.id,'Name / Business':c.name,'Phone':c.phone||'','Email':c.email||'',
+      'Type':c.type,'Status':c.status,'Total Spent (KES)':fmtNum(spent),'Visits':fmtNum(visits),'Notes':c.notes||''};
+  });
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:8},{wch:22},{wch:14},{wch:24},{wch:12},{wch:10},{wch:16},{wch:8},{wch:24}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Customers');
+  xlsxDownload(wb,'Glambo_Customers_'+today()+'.xlsx');
+  toast('Customers exported','ok');
+}
+
+function exportRep(){
+  const svcs=load(K.svc);const exps=load(K.exp);
+  const from=document.getElementById('rp-from')?.value||'';
+  const to=document.getElementById('rp-to')?.value||today();
+  const fs=svcs.filter(s=>(!from||s.date>=from)&&s.date<=to);
+  const fe=exps.filter(e=>(!from||e.date>=from)&&e.date<=to);
+  const rev=fs.reduce((a,b)=>a+b.total,0);
+  const exp=fe.reduce((a,b)=>a+b.amt,0);
+  const prof=rev-exp;
+  const margin=rev?Math.round(prof/rev*100):0;
+  const wb=XLSX.utils.book_new();
+  // Sheet 1: Summary
+  const sumRows=[
+    {'Metric':'Date Range','Value':(from||'All time')+' → '+to},
+    {'Metric':'Total Revenue (KES)','Value':fmtNum(rev)},
+    {'Metric':'Total Expenses (KES)','Value':fmtNum(exp)},
+    {'Metric':'Net Profit (KES)','Value':fmtNum(prof)},
+    {'Metric':'Profit Margin (%)','Value':margin},
+    {'Metric':'Total Service Entries','Value':fmtNum(fs.length)},
+    {'Metric':'Avg Revenue per Job (KES)','Value':fs.length?fmtNum(Math.round(rev/fs.length)):0},
+  ];
+  const wsSummary=XLSX.utils.json_to_sheet(sumRows);
+  wsSummary['!cols']=[{wch:28},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,wsSummary,'Summary');
+  // Sheet 2: Service entries
+  const svcRows=fs.sort((a,b)=>b.date.localeCompare(a.date)).map(r=>({
+    'Date':fmtD(r.date),'Service Type':r.type,'Description':r.desc||'',
+    'Qty':fmtNum(r.qty),'Unit Price (KES)':fmtNum(r.price),'Total (KES)':fmtNum(r.total),
+    'Customer':r.customer,'Payment':r.payment,'Staff':r.staff
+  }));
+  if(svcRows.length){
+    const wsSvc=XLSX.utils.json_to_sheet(svcRows);
+    wsSvc['!cols']=[{wch:12},{wch:24},{wch:22},{wch:6},{wch:14},{wch:14},{wch:18},{wch:14},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,wsSvc,'Services');
+  }
+  // Sheet 3: Expenses
+  const expRows=fe.sort((a,b)=>b.date.localeCompare(a.date)).map(e=>({
+    'Date':fmtD(e.date),'Category':e.cat,'Description':e.desc||'',
+    'Amount (KES)':fmtNum(e.amt),'Payment Method':e.payment,'Reference':e.ref||''
+  }));
+  if(expRows.length){
+    const wsExp=XLSX.utils.json_to_sheet(expRows);
+    wsExp['!cols']=[{wch:12},{wch:22},{wch:24},{wch:14},{wch:16},{wch:16}];
+    XLSX.utils.book_append_sheet(wb,wsExp,'Expenses');
+  }
+  // Sheet 4: Revenue by service type
+  const sT=[...new Set(fs.map(s=>s.type))].map(t=>({'Service Type':t,'Total Revenue (KES)':fmtNum(fs.filter(s=>s.type===t).reduce((a,b)=>a+b.total,0)),'Job Count':fmtNum(fs.filter(s=>s.type===t).length)})).sort((a,b)=>b['Total Revenue (KES)']-a['Total Revenue (KES)']);
+  if(sT.length){
+    const wsST=XLSX.utils.json_to_sheet(sT);
+    wsST['!cols']=[{wch:28},{wch:18},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,wsST,'Revenue by Service');
+  }
+  xlsxDownload(wb,'Glambo_Report_'+from+'_to_'+to+'.xlsx');
+  toast('Report exported (4 sheets)','ok');
+}
+
 function initApp(){
   reams();
   const t=today();const m1=t.slice(0,7)+'-01';
@@ -407,4 +548,5 @@ function initApp(){
   renderSL();
 }
 initSetup();
+
 
