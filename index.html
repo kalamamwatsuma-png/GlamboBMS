@@ -6,6 +6,7 @@
 <title>Glambo BMS</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
  <link rel="stylesheet" href="glambo.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -86,6 +87,7 @@
     <div class="card-hd">
       <span class="card-title">All Entries</span>
       <div class="df-row">
+        <button class="btn btn-ghost btn-sm" onclick="exportSL()" title="Export to Excel">&#128190; Export Excel</button>
         <label>From</label><input type="date" id="sl-from" onchange="renderSL()"/>
         <label>To</label><input type="date" id="sl-to" onchange="renderSL()"/>
         <input type="text" id="sl-q" placeholder="Search..." oninput="renderSL()" style="padding:6px 10px;border:1.5px solid var(--g2);border-radius:var(--r8);font-size:13px;width:140px;font-family:'Outfit',sans-serif"/>
@@ -117,7 +119,7 @@
     <button class="btn btn-primary" onclick="addInv()">&#10010; Add Item</button>
   </div>
   <div class="card">
-    <div class="card-hd"><span class="card-title">Stock List</span><span class="fw7" style="font-size:14px">Total Value: <span id="inv-tv" class="c-green">KES 0</span></span></div>
+    <div class="card-hd"><span class="card-title">Stock List</span><div class="flex"><span class="fw7" style="font-size:14px">Total Value: <span id="inv-tv" class="c-green">KES 0</span></span><button class="btn btn-ghost btn-sm" onclick="exportInv()" title="Export to Excel">&#128190; Export Excel</button></div></div>
     <div id="inv-alerts"></div>
     <div class="tw"><table>
       <thead><tr><th>Item</th><th>Category</th><th>In Stock</th><th>Min</th><th>Unit Cost</th><th>Total Value</th><th>Supplier</th><th>Restocked</th><th>Status</th><th>Action</th></tr></thead>
@@ -145,7 +147,7 @@
   <div class="card">
     <div class="card-hd">
       <span class="card-title">Expense Records</span>
-      <div class="df-row"><label>From</label><input type="date" id="exp-from" onchange="renderExp()"/><label>To</label><input type="date" id="exp-to" onchange="renderExp()"/></div>
+      <div class="df-row"><button class="btn btn-ghost btn-sm" onclick="exportExp()" title="Export to Excel">&#128190; Export Excel</button><label>From</label><input type="date" id="exp-from" onchange="renderExp()"/><label>To</label><input type="date" id="exp-to" onchange="renderExp()"/></div>
     </div>
     <div class="alert a-info" style="font-size:12px"><span>&#128274;</span><span>Past expenses are locked. Owner password required to delete.</span></div>
     <div class="tw"><table>
@@ -175,7 +177,10 @@
   <div class="card">
     <div class="card-hd">
       <span class="card-title">Customer Directory</span>
-      <input type="text" id="cu-q" placeholder="Search..." oninput="renderCust()" style="padding:6px 10px;border:1.5px solid var(--g2);border-radius:var(--r8);font-size:13px;width:180px;font-family:'Outfit',sans-serif"/>
+      <div class="flex">
+        <button class="btn btn-ghost btn-sm" onclick="exportCust()" title="Export to Excel">&#128190; Export Excel</button>
+        <input type="text" id="cu-q" placeholder="Search..." oninput="renderCust()" style="padding:6px 10px;border:1.5px solid var(--g2);border-radius:var(--r8);font-size:13px;width:180px;font-family:'Outfit',sans-serif"/>
+      </div>
     </div>
     <div class="tw"><table>
       <thead><tr><th>ID</th><th>Name / Business</th><th>Phone</th><th>Email</th><th>Type</th><th>Status</th><th>Total Spent (KES)</th><th>Visits</th><th>Action</th></tr></thead>
@@ -197,6 +202,7 @@
       <button class="btn btn-ghost btn-sm" onclick="setRange('week')">This Week</button>
       <button class="btn btn-ghost btn-sm" onclick="setRange('today')">Today</button>
       <button class="btn btn-ghost btn-sm" onclick="setRange('yesterday')">Yesterday</button>
+      <button class="btn btn-primary btn-sm" onclick="exportRep()" title="Export Report to Excel">&#128190; Export Report</button>
     </div>
   </div>
   <div class="kpi-row" id="rp-kpis"></div>
@@ -245,3 +251,4 @@
 </script>
 </body>
 </html>
+
