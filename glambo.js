@@ -1,4 +1,4 @@
-const K={svc:'gb2_svc',inv:'gb2_inv',exp:'gb2_exp',cus:'gb2_cus',pw:'gb2_pw'};
+const K={svc:'gb2_svc',inv:'gb2_inv',exp:'gb2_exp',cus:'gb2_cus',pw:'gb2_pw',notes:'gb2_notes'};
 const load=k=>{try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return[]}};
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const today=()=>new Date().toISOString().split('T')[0];
@@ -116,7 +116,7 @@ function goPage(id,btn){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+id).classList.add('on');
   if(btn)btn.classList.add('on');
-  ({servicelog:renderSL,inventory:renderInv,expenses:renderExp,customers:renderCust,reports:renderRep}[id]||function(){})();
+  ({servicelog:renderSL,inventory:renderInv,expenses:renderExp,customers:renderCust,reports:renderRep,notes:renderNotes}[id]||function(){})();
 }
 
 // ── SERVICE LOG ──
@@ -144,9 +144,9 @@ function addService(){
   toast('Entry saved','ok');renderSL();
 }
 const SVC_BC={'eCitizen Application':'b-blue','iTax Service':'b-purple','Printing':'b-teal','Photocopying':'b-gray','Graphic Design':'b-orange','Scanning':'b-green','Lamination':'b-green','Binding':'b-gray','SHA Registration':'b-blue','Business Registration':'b-orange','NTSA Application':'b-blue','Online Registration (Other)':'b-blue'};
-const SVC_TYPES=['eCitizen Application','iTax Service','SHA Registration','Business Registration','Paper & Stationery','Online Registration (Other)','Graphic Design','Printing','Photocopying','Scanning','Lamination','Binding', 'Other'];
+const SVC_TYPES=['eCitizen Application','iTax Service','SHA Registration','Business Registration','Paper & Stationery','Online Registration (Other)','Graphic Design','Printing','Photocopying','Scanning','Lamination','Binding'];
 const PAY_TYPES=['Cash','M-Pesa','Bank Transfer','Credit'];
-const STAFF_LIST=['Emmanuel Kalama','Peter Karuki','Steve Ochieng\'','Ann Mwachala'];
+const STAFF_LIST=['Owner','Peter Karuki','Steve Ochieng\'','Ann Mwachala'];
 
 function renderSL(){
   const arr=load(K.svc);
@@ -626,6 +626,85 @@ function exportRep(){
   toast('Report exported (4 sheets)','ok');
 }
 
+// ── DAILY NOTES ──
+function saveNote(){
+  const date=document.getElementById('note-date').value||today();
+  const text=document.getElementById('note-text').value.trim();
+  const tags=document.getElementById('note-tags').value.trim();
+  if(!text){toast('Note cannot be empty','err');return;}
+  const arr=load(K.notes);
+  const existing=arr.find(n=>n.date===date);
+  if(existing){
+    existing.text=text;existing.tags=tags;existing.updated=new Date().toISOString();
+    toast('Note updated','ok');
+  } else {
+    arr.push({id:genId(arr),date,text,tags,created:new Date().toISOString()});
+    toast('Note saved','ok');
+  }
+  save(K.notes,arr);
+  document.getElementById('note-text').value='';
+  document.getElementById('note-tags').value='';
+  document.getElementById('note-date').value=today();
+  renderNotes();
+}
+function renderNotes(){
+  const arr=load(K.notes).sort((a,b)=>b.date.localeCompare(a.date));
+  const q=(document.getElementById('note-q')?.value||'').toLowerCase();
+  const list=q?arr.filter(n=>`${n.text}${n.tags}`.toLowerCase().includes(q)):arr;
+
+  // Load today's note into the form if it exists
+  const todayNote=arr.find(n=>n.date===today());
+  const dateEl=document.getElementById('note-date');
+  if(dateEl&&dateEl.value===today()){
+    document.getElementById('note-text').value=todayNote?.text||'';
+    document.getElementById('note-tags').value=todayNote?.tags||'';
+  }
+
+  const tbody=document.getElementById('notes-tbody');
+  if(!tbody)return;
+  tbody.innerHTML=list.map(n=>{
+    const tagBadges=n.tags?n.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="badge b-blue" style="font-size:10px">${t}</span>`).join(' '):'';
+    return `<tr>
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px">${fmtD(n.date)}</span></td>
+      <td style="max-width:360px;white-space:pre-wrap;line-height:1.5">${n.text}</td>
+      <td>${tagBadges||'—'}</td>
+      <td style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" onclick="loadNoteToForm('${n.date}')">&#9998; Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="delNote(${n.id})">Del</button>
+      </td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="4"><div class="empty"><div class="empty-icon">&#128221;</div>No notes yet. Start writing above!</div></td></tr>`;
+
+  // Update note count badge
+  const countEl=document.getElementById('notes-count');
+  if(countEl)countEl.textContent=arr.length+' note'+(arr.length!==1?'s':'');
+}
+function loadNoteToForm(date){
+  const n=load(K.notes).find(x=>x.date===date);
+  if(!n)return;
+  document.getElementById('note-date').value=n.date;
+  document.getElementById('note-text').value=n.text;
+  document.getElementById('note-tags').value=n.tags||'';
+  document.getElementById('note-text').focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('Note loaded for editing');
+}
+function delNote(id){
+  if(!confirm('Delete this note?'))return;
+  save(K.notes,load(K.notes).filter(n=>n.id!==id));
+  renderNotes();toast('Note deleted');
+}
+function exportNotes(){
+  const arr=load(K.notes).sort((a,b)=>b.date.localeCompare(a.date));
+  const rows=arr.map(n=>({'Date':fmtD(n.date),'Note':n.text,'Tags':n.tags||''}));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:14},{wch:60},{wch:30}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Daily Notes');
+  xlsxDownload(wb,'Glambo_Notes_'+today()+'.xlsx');
+  toast('Notes exported','ok');
+}
+
 // ── EDIT MODAL ──
 function openEditModal(title, bodyHtml, saveCb){
   let m=document.getElementById('edit-modal');
@@ -657,6 +736,55 @@ function initApp(){
   document.getElementById('top-date').textContent=new Date().toLocaleDateString('en-KE',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
   [['sl-date',t],['exp-date',t],['sl-from',m1],['sl-to',t],['exp-from',m1],['exp-to',t],['rp-from',m1],['rp-to',t]]
     .forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v;});
+
+  // ── Inject Notes nav button ──
+  if(!document.getElementById('nav-notes-btn')){
+    const nav=document.getElementById('nav');
+    const btn=document.createElement('button');
+    btn.className='nb';btn.id='nav-notes-btn';
+    btn.innerHTML='<span>&#128221;</span> Daily Notes';
+    btn.onclick=function(){goPage('notes',this);};
+    nav.appendChild(btn);
+  }
+
+  // ── Inject Notes page ──
+  if(!document.getElementById('pg-notes')){
+    const main=document.getElementById('main');
+    const pg=document.createElement('div');
+    pg.id='pg-notes';pg.className='pg';
+    pg.innerHTML=`
+      <div class="pg-title">Daily Activity Notes</div>
+      <div class="pg-sub">Log daily observations, tasks, and reminders. One note per date — editing a date overwrites the existing note.</div>
+      <div class="card">
+        <div class="card-hd"><span class="card-title">&#128221; Write Note</span><span id="notes-count" class="chip" style="font-size:12px"></span></div>
+        <div class="fgrid" style="grid-template-columns:200px 1fr">
+          <div class="fg"><label>Date</label><input type="date" id="note-date" value="${t}"/></div>
+          <div class="fg"><label>Tags <span style="color:var(--g4);font-weight:400">(comma-separated, e.g. urgent, staff, errand)</span></label>
+            <input type="text" id="note-tags" placeholder="e.g. urgent, follow-up"/></div>
+        </div>
+        <div class="fg" style="margin-bottom:14px">
+          <label>Note</label>
+          <textarea id="note-text" rows="5" placeholder="Write today's activity notes here…" style="width:100%;padding:10px 12px;border:1.5px solid var(--g2);border-radius:var(--r8);font-size:13px;font-family:'Outfit',sans-serif;resize:vertical;line-height:1.6;color:var(--ink);background:var(--bg)" onkeydown="if(event.ctrlKey&&event.key==='Enter')saveNote()"></textarea>
+          <div style="font-size:11px;color:var(--g4);margin-top:4px">Tip: Ctrl+Enter to save quickly</div>
+        </div>
+        <button class="btn btn-primary" onclick="saveNote()">&#10010; Save Note</button>
+      </div>
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">Note History</span>
+          <div class="df-row">
+            <button class="btn btn-ghost btn-sm" onclick="exportNotes()">&#128190; Export Excel</button>
+            <input type="text" id="note-q" placeholder="Search notes..." oninput="renderNotes()" style="padding:6px 10px;border:1.5px solid var(--g2);border-radius:var(--r8);font-size:13px;width:180px;font-family:'Outfit',sans-serif"/>
+          </div>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>Date</th><th>Note</th><th>Tags</th><th>Action</th></tr></thead>
+          <tbody id="notes-tbody"></tbody>
+        </table></div>
+      </div>`;
+    main.appendChild(pg);
+  }
+
   renderSL();
 }
 initSetup();
