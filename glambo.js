@@ -144,6 +144,10 @@ function addService(){
   toast('Entry saved','ok');renderSL();
 }
 const SVC_BC={'eCitizen Application':'b-blue','iTax Service':'b-purple','Printing':'b-teal','Photocopying':'b-gray','Graphic Design':'b-orange','Scanning':'b-green','Lamination':'b-green','Binding':'b-gray','SHA Registration':'b-blue','Business Registration':'b-orange','NTSA Application':'b-blue','Online Registration (Other)':'b-blue'};
+const SVC_TYPES=['eCitizen Application','iTax Service','SHA Registration','Business Registration','Paper & Stationery','Online Registration (Other)','Graphic Design','Printing','Photocopying','Scanning','Lamination','Binding'];
+const PAY_TYPES=['Cash','M-Pesa','Bank Transfer','Credit'];
+const STAFF_LIST=['Owner','Peter Karuki','Steve Ochieng\'','Ann Mwachala'];
+
 function renderSL(){
   const arr=load(K.svc);
   const from=document.getElementById('sl-from')?.value||'';
@@ -161,6 +165,7 @@ function renderSL(){
     total+=r.total;
     const locked=isLocked(r.date);
     const bc=SVC_BC[r.type]||'b-gray';
+    const editBtn=currentRole==='owner'?`<button class="btn btn-ghost btn-sm" onclick="editSvc(${r.id})">&#9998; Edit</button>`:'';
     const action=locked
       ?`<button class="btn btn-unlock btn-sm" onclick="reqUnlock('svc',${r.id})">&#128273; Unlock</button>`
       :`<button class="btn btn-danger btn-sm" onclick="delSvc(${r.id})">Delete</button>`;
@@ -174,7 +179,7 @@ function renderSL(){
       <td>${r.customer}</td>
       <td><span class="badge b-gray" style="font-size:10px">${r.payment}</span></td>
       <td>${r.staff}</td>
-      <td>${action}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">${editBtn}${action}</td>
     </tr>`;
   }).join('')||`<tr><td colspan="10"><div class="empty"><div class="empty-icon">&#128203;</div>No entries found</div></td></tr>`;
   document.getElementById('sl-ftotal').textContent=kes(total);
@@ -190,6 +195,37 @@ function reqUnlock(mod,id){
 }
 function delSvc(id){if(!confirm('Delete this entry?'))return;save(K.svc,load(K.svc).filter(r=>r.id!==id));renderSL();toast('Entry deleted');}
 function delSvcForce(id){save(K.svc,load(K.svc).filter(r=>r.id!==id));renderSL();toast('Locked entry deleted after verification','ok');}
+
+// ── EDIT SERVICE ──
+function editSvc(id){
+  if(currentRole!=='owner'){toast('Only the Owner can edit entries','err');return;}
+  const arr=load(K.svc);const r=arr.find(x=>x.id===id);if(!r)return;
+  const typeOpts=SVC_TYPES.map(t=>`<option${t===r.type?' selected':''}>${t}</option>`).join('');
+  const payOpts=PAY_TYPES.map(p=>`<option${p===r.payment?' selected':''}>${p}</option>`).join('');
+  const staffOpts=STAFF_LIST.map(s=>`<option${s===r.staff?' selected':''}>${s}</option>`).join('');
+  openEditModal('Edit Service Entry',`
+    <div class="fgrid" style="grid-template-columns:1fr 1fr">
+      <div class="fg"><label>Date</label><input type="date" id="ed-date" value="${r.date}"/></div>
+      <div class="fg"><label>Service Type</label><select id="ed-type">${typeOpts}</select></div>
+      <div class="fg"><label>Description</label><input type="text" id="ed-desc" value="${r.desc||''}"/></div>
+      <div class="fg"><label>Qty / Pages</label><input type="number" id="ed-qty" value="${r.qty}" min="1"/></div>
+      <div class="fg"><label>Price per Unit (KES)</label><input type="number" id="ed-price" value="${r.price}" min="0"/></div>
+      <div class="fg"><label>Customer</label><input type="text" id="ed-cust" value="${r.customer}"/></div>
+      <div class="fg"><label>Payment</label><select id="ed-pay">${payOpts}</select></div>
+      <div class="fg"><label>Staff</label><select id="ed-staff">${staffOpts}</select></div>
+    </div>`,
+  ()=>{
+    const d=document.getElementById('ed-date').value;
+    const t=document.getElementById('ed-type').value;
+    const price=+document.getElementById('ed-price').value||0;
+    if(!d||!t||!price){toast('Date, Service Type and Price are required','err');return false;}
+    r.date=d;r.type=t;r.desc=document.getElementById('ed-desc').value.trim();
+    r.qty=+document.getElementById('ed-qty').value||1;r.price=price;
+    r.total=r.qty*r.price;r.customer=document.getElementById('ed-cust').value.trim()||'Walk-in';
+    r.payment=document.getElementById('ed-pay').value;r.staff=document.getElementById('ed-staff').value;
+    save(K.svc,arr);renderSL();toast('Service entry updated','ok');return true;
+  });
+}
 
 // ── INVENTORY ──
 function addInv(){
@@ -226,6 +262,7 @@ function renderInv(){
       <td>${lo?'<span class="badge b-red">&#128308; Reorder</span>':'<span class="badge b-green">&#9989; OK</span>'}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="adjStock(${i.id})">&#177; Qty</button>
+        ${currentRole==='owner'?`<button class="btn btn-ghost btn-sm" onclick="editInv(${i.id})">&#9998; Edit</button>`:''}
         <button class="btn btn-danger btn-sm" onclick="delInv(${i.id})">Del</button>
       </td>
     </tr>`;
@@ -240,6 +277,31 @@ function adjStock(id){
   toast(`${d>=0?'Added':'Removed'} ${Math.abs(d)} units`,'ok');
 }
 function delInv(id){if(!confirm('Remove this item?'))return;save(K.inv,load(K.inv).filter(i=>i.id!==id));renderInv();toast('Item removed');}
+
+// ── EDIT INVENTORY ──
+function editInv(id){
+  if(currentRole!=='owner'){toast('Only the Owner can edit items','err');return;}
+  const arr=load(K.inv);const i=arr.find(x=>x.id===id);if(!i)return;
+  const catOpts=['Paper & Stationery','Ink & Toner','Binding Supplies','Lamination','Equipment','Other'].map(c=>`<option${c===i.cat?' selected':''}>${c}</option>`).join('');
+  openEditModal('Edit Inventory Item',`
+    <div class="fgrid" style="grid-template-columns:1fr 1fr">
+      <div class="fg"><label>Item Name</label><input type="text" id="ed-iname" value="${i.name}"/></div>
+      <div class="fg"><label>Category</label><select id="ed-icat">${catOpts}</select></div>
+      <div class="fg"><label>Quantity in Stock</label><input type="number" id="ed-iqty" value="${i.qty}" min="0"/></div>
+      <div class="fg"><label>Minimum Stock Level</label><input type="number" id="ed-imin" value="${i.min}" min="0"/></div>
+      <div class="fg"><label>Unit Cost (KES)</label><input type="number" id="ed-icost" value="${i.cost}" min="0"/></div>
+      <div class="fg"><label>Supplier</label><input type="text" id="ed-isupp" value="${i.supp||''}"/></div>
+    </div>`,
+  ()=>{
+    const name=document.getElementById('ed-iname').value.trim();
+    const cost=+document.getElementById('ed-icost').value||0;
+    if(!name||!cost){toast('Item name and unit cost required','err');return false;}
+    i.name=name;i.cat=document.getElementById('ed-icat').value;
+    i.qty=+document.getElementById('ed-iqty').value||0;i.min=+document.getElementById('ed-imin').value||0;
+    i.cost=cost;i.supp=document.getElementById('ed-isupp').value.trim();
+    save(K.inv,arr);renderInv();toast('Item updated','ok');return true;
+  });
+}
 
 // ── EXPENSES ──
 function addExp(){
@@ -266,6 +328,7 @@ function renderExp(){
   document.getElementById('exp-tbody').innerHTML=list.map(e=>{
     total+=e.amt;const locked=isLocked(e.date);
     const bc=EXP_BC[e.cat]||'b-gray';
+    const editBtn=currentRole==='owner'?`<button class="btn btn-ghost btn-sm" onclick="editExp(${e.id})">&#9998; Edit</button>`:'';
     const action=locked
       ?`<button class="btn btn-unlock btn-sm" onclick="reqUnlock('exp',${e.id})">&#128273; Unlock</button>`
       :`<button class="btn btn-danger btn-sm" onclick="delExpToday(${e.id})">Delete</button>`;
@@ -275,13 +338,39 @@ function renderExp(){
       <td>${e.desc||'—'}</td>
       <td class="fw7 c-red">${kes(e.amt)}</td>
       <td>${e.payment}</td><td class="text-muted">${e.ref||'—'}</td>
-      <td>${action}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">${editBtn}${action}</td>
     </tr>`;
   }).join('')||`<tr><td colspan="7"><div class="empty"><div class="empty-icon">&#128184;</div>No expenses found</div></td></tr>`;
   document.getElementById('exp-total').textContent=kes(total);
 }
 function delExpToday(id){if(!confirm('Delete?'))return;save(K.exp,load(K.exp).filter(e=>e.id!==id));renderExp();toast('Expense deleted');}
 function delExpForce(id){save(K.exp,load(K.exp).filter(e=>e.id!==id));renderExp();toast('Locked expense deleted after verification','ok');}
+
+// ── EDIT EXPENSE ──
+function editExp(id){
+  if(currentRole!=='owner'){toast('Only the Owner can edit expenses','err');return;}
+  const arr=load(K.exp);const e=arr.find(x=>x.id===id);if(!e)return;
+  const catOpts=['Rent','Internet','Electricity','Staff Salaries','Supplies','Equipment Maintenance','Marketing','Transport','Miscellaneous'].map(c=>`<option${c===e.cat?' selected':''}>${c}</option>`).join('');
+  const payOpts=PAY_TYPES.map(p=>`<option${p===e.payment?' selected':''}>${p}</option>`).join('');
+  openEditModal('Edit Expense',`
+    <div class="fgrid" style="grid-template-columns:1fr 1fr">
+      <div class="fg"><label>Date</label><input type="date" id="ed-edate" value="${e.date}"/></div>
+      <div class="fg"><label>Category</label><select id="ed-ecat">${catOpts}</select></div>
+      <div class="fg"><label>Description</label><input type="text" id="ed-edesc" value="${e.desc||''}"/></div>
+      <div class="fg"><label>Amount (KES)</label><input type="number" id="ed-eamt" value="${e.amt}" min="0"/></div>
+      <div class="fg"><label>Payment Method</label><select id="ed-epay">${payOpts}</select></div>
+      <div class="fg"><label>Reference</label><input type="text" id="ed-eref" value="${e.ref||''}"/></div>
+    </div>`,
+  ()=>{
+    const d=document.getElementById('ed-edate').value;
+    const amt=+document.getElementById('ed-eamt').value||0;
+    if(!d||!amt){toast('Date and amount required','err');return false;}
+    e.date=d;e.cat=document.getElementById('ed-ecat').value;
+    e.desc=document.getElementById('ed-edesc').value.trim();e.amt=amt;
+    e.payment=document.getElementById('ed-epay').value;e.ref=document.getElementById('ed-eref').value.trim();
+    save(K.exp,arr);renderExp();toast('Expense updated','ok');return true;
+  });
+}
 
 // ── CUSTOMERS ──
 function addCust(){
@@ -535,6 +624,31 @@ function exportRep(){
   }
   xlsxDownload(wb,'Glambo_Report_'+from+'_to_'+to+'.xlsx');
   toast('Report exported (4 sheets)','ok');
+}
+
+// ── EDIT MODAL ──
+function openEditModal(title, bodyHtml, saveCb){
+  let m=document.getElementById('edit-modal');
+  if(!m){
+    m=document.createElement('div');m.className='modal-bg';m.id='edit-modal';
+    m.innerHTML=`<div class="modal" style="max-width:560px;width:95%">
+      <div class="modal-hd"><span class="modal-title" id="ed-title"></span><button class="modal-x" onclick="closeM('edit-modal')">&#10005;</button></div>
+      <div id="ed-body" style="margin-bottom:16px"></div>
+      <div id="ed-err" style="color:var(--red);font-size:13px;margin-bottom:10px;min-height:16px"></div>
+      <div class="flex"><button class="btn btn-primary" id="ed-save-btn" style="flex:1;justify-content:center">&#10003; Save Changes</button><button class="btn btn-ghost" onclick="closeM('edit-modal')">Cancel</button></div>
+    </div>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('ed-title').textContent='✏️ '+title;
+  document.getElementById('ed-body').innerHTML=bodyHtml;
+  document.getElementById('ed-err').textContent='';
+  const btn=document.getElementById('ed-save-btn');
+  btn.onclick=()=>{
+    document.getElementById('ed-err').textContent='';
+    const ok=saveCb();
+    if(ok)closeM('edit-modal');
+  };
+  m.classList.add('open');
 }
 
 function initApp(){
