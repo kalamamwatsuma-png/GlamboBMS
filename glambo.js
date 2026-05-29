@@ -146,7 +146,7 @@ function addService(){
 const SVC_BC={'eCitizen Application':'b-blue','iTax Service':'b-purple','Printing':'b-teal','Photocopying':'b-gray','Graphic Design':'b-orange','Scanning':'b-green','Lamination':'b-green','Binding':'b-gray','SHA Registration':'b-blue','Business Registration':'b-orange','NTSA Application':'b-blue','Online Registration (Other)':'b-blue'};
 const SVC_TYPES=['eCitizen Application','iTax Service','SHA Registration','Business Registration','Paper & Stationery','Online Registration (Other)','Graphic Design','Printing','Photocopying','Scanning','Lamination','Binding'];
 const PAY_TYPES=['Cash','M-Pesa','Bank Transfer','Credit'];
-const STAFF_LIST=['Owner','Peter Karuki','Steve Ochieng\'','Ann Mwachala'];
+const STAFF_LIST=['Emmanuel Kalama','Peter Karuki','Steve Ochieng\'','Ann Mwachala'];
 
 function renderSL(){
   const arr=load(K.svc);
