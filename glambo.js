@@ -5,7 +5,7 @@ const today=()=>new Date().toISOString().split('T')[0];
 const fmtD=s=>{if(!s)return '—';const[y,m,d]=s.split('-');return d+'/'+m+'/'+y};
 const kes=n=>'KES '+Number(n||0).toLocaleString('en-KE');
 const genId=a=>a.length?Math.max(...a.map(x=>+x.id||0))+1:1;
-const isLocked=d=>d<today();
+const isLocked=d=>false;
 
 let currentRole='owner';
 let unlockCb=null;
@@ -135,7 +135,6 @@ function addService(){
   const pay=document.getElementById('sl-pay').value;
   const staff=document.getElementById('sl-staff').value;
   if(!d||!t||!price){toast('Date, Service Type and Price are required','err');return;}
-  if(d<today()){toast('Cannot add entries to past dates','err');return;}
   const arr=load(K.svc);
   arr.push({id:genId(arr),date:d,type:t,desc,qty,price,total:qty*price,customer:cust,payment:pay,staff});
   save(K.svc,arr);
@@ -150,7 +149,6 @@ function renderSL(){
   const from=document.getElementById('sl-from')?.value||'';
   const to=document.getElementById('sl-to')?.value||'9999';
   const q=(document.getElementById('sl-q')?.value||'').toLowerCase();
-  const t=today();
   const list=arr.filter(r=>{
     if(from&&r.date<from)return false;
     if(to&&r.date>to)return false;
@@ -548,5 +546,3 @@ function initApp(){
   renderSL();
 }
 initSetup();
-
-
